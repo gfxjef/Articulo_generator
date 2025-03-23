@@ -182,6 +182,48 @@ main {
     max-width: 100%; /* Las imágenes no serán más anchas que el editor */
     height: auto; /* Mantener proporción */
     display: block; /* Evitar problemas de alineación */
+    cursor: pointer; /* Indicar que se puede hacer clic */
+    position: relative; /* Para el posicionamiento de los botones */
+}
+
+#editor img.selected-image {
+    outline: 2px solid var(--primary-color);
+}
+
+/* Botones de control para imágenes seleccionadas - simplificados */
+.image-controls {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: flex;
+    gap: 5px;
+    z-index: 100;
+}
+
+.image-control-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.image-control-btn:hover {
+    background-color: #fff;
+}
+
+.image-change-btn {
+    color: var(--primary-color);
+}
+
+.image-delete-btn {
+    color: #dc3545;
 }
 
 /* Asegurar que los tamaños de texto se apliquen correctamente */
