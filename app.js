@@ -2,20 +2,48 @@
 const quill = new Quill('#editor', {
     theme: 'snow',
     modules: {
-        toolbar: [
-            // Eliminado el selector de headers/encabezados
-            ['bold', 'italic', 'underline', 'strike'],
-            ['link', 'image'],
-            [{ 'size': ['10pt', '12pt', '14pt', '16pt', '18pt', '20pt', '24pt', '36pt'] }], // Tamaños basados en pts
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'align': [] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['blockquote'],
-            ['clean']
-        ]
+        toolbar: {
+            container: [
+                // Eliminado el selector de headers/encabezados
+                ['bold', 'italic', 'underline', 'strike'],
+                ['link', 'image'],
+                [{ 'size': ['10pt', '12pt', '14pt', '16pt', '18pt', '20pt', '24pt', '36pt'] }], // Tamaños basados en pts
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'align': [] }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['blockquote'],
+                ['clean']
+            ],
+            handlers: {
+                // Sobrescribir completamente los manejadores nativos de imágenes y enlaces
+                'image': function() {
+                    openModal(imageModal);
+                    imageUrlInput.value = '';
+                    imageUpload.value = '';
+                    imagePreview.style.display = 'none';
+                    imagePreview.src = '';
+                },
+                'link': function() {
+                    openModal(linkModal);
+                    linkTextInput.value = '';
+                    linkUrlInput.value = '';
+                    
+                    // Obtener texto seleccionado
+                    const range = quill.getSelection();
+                    if (range && range.length > 0) {
+                        const text = quill.getText(range.index, range.length);
+                        linkTextInput.value = text;
+                    }
+                }
+            }
+        }
     },
     placeholder: 'Comienza a escribir tu artículo aquí...'
 });
+
+// Variables para el manejo de imágenes seleccionadas
+let selectedImage = null;
+let imageControlsContainer = null;
 
 // Personalizar el manejo de tamaños de fuente en pts
 const Size = Quill.import('attributors/style/size');
@@ -203,41 +231,11 @@ function init() {
         loadArticle(JSON.parse(lastEditedArticle));
     }
     
-    // Agregar handlers para los botones del toolbar de Quill
-    const imageButton = document.querySelector('.ql-image');
-    const linkButton = document.querySelector('.ql-link');
-    
-    if (imageButton) {
-        // Reemplazar el comportamiento por defecto
-        imageButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal(imageModal);
-            imageUrlInput.value = '';
-            imageUpload.value = '';
-            imagePreview.style.display = 'none';
-            imagePreview.src = '';
-        });
-    }
-    
-    if (linkButton) {
-        // Reemplazar el comportamiento por defecto
-        linkButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal(linkModal);
-            linkTextInput.value = '';
-            linkUrlInput.value = '';
-            
-            // Obtener texto seleccionado
-            const range = quill.getSelection();
-            if (range && range.length > 0) {
-                const text = quill.getText(range.index, range.length);
-                linkTextInput.value = text;
-            }
-        });
-    }
-    
     // Solución mejorada para eliminar el placeholder al hacer foco o clic en el editor
     setupPlaceholderRemoval();
+    
+    // Configurar la selección de imágenes
+    setupImageSelection();
 }
 
 // Nueva función dedicada para manejar correctamente el placeholder
@@ -381,15 +379,6 @@ function loadArticle(article) {
 }
 
 // Funcionalidad de modal de imagen
-/*
-addImageBtn.addEventListener('click', () => {
-    openModal(imageModal);
-    imageUrlInput.value = '';
-    imageUpload.value = '';
-    imagePreview.style.display = 'none';
-    imagePreview.src = '';
-});
-*/
 
 // Previsualizar imagen
 imageUrlInput.addEventListener('input', () => {
@@ -417,7 +406,11 @@ imageUpload.addEventListener('change', (e) => {
     }
 });
 
-// Insertar imagen con control de tamaño
+// ***********************
+// Se ha eliminado el primer listener duplicado de "insertImageBtn"
+// ***********************
+
+// Insertar/Reemplazar imagen (listener único y mejorado)
 insertImageBtn.addEventListener('click', () => {
     let imageUrl = imageUrlInput.value.trim();
     
@@ -431,22 +424,66 @@ insertImageBtn.addEventListener('click', () => {
         return;
     }
     
-    const range = quill.getSelection(true);
+    // Verificar si estamos editando una imagen existente
+    const isEditingImage = document.body.hasAttribute('data-editing-image');
     
-    // Insertar imagen y luego aplicar clase para control de tamaño
-    quill.insertEmbed(range.index, 'image', imageUrl, 'user');
-    
-    // Aplicar formato para asegurar que la imagen esté dentro del ancho máximo
-    setTimeout(() => {
-        const imgElements = quill.root.querySelectorAll('img');
-        imgElements.forEach(img => {
-            // Las imágenes mantendrán su tamaño original hasta 600px
-            img.style.maxWidth = '100%';
-            img.style.height = 'auto';
-        });
-    }, 10);
-    
-    quill.setSelection(range.index + 1);
+    try {
+        if (isEditingImage && selectedImage) {
+            // Método más seguro: insertamos nueva imagen y eliminamos la antigua
+            const imgBlot = Quill.find(selectedImage);
+            if (imgBlot) {
+                const index = quill.getIndex(imgBlot);
+                
+                // Insertar nueva imagen justo después de la actual
+                quill.insertEmbed(index + 1, 'image', imageUrl, 'user');
+                
+                // Luego eliminar la imagen antigua
+                quill.deleteText(index, 1);
+                
+                // Aplicar estilos a la nueva imagen
+                setTimeout(() => {
+                    const newImgElements = quill.root.querySelectorAll('img');
+                    if (newImgElements.length > 0) {
+                        newImgElements.forEach(img => {
+                            if (img.src === imageUrl) {
+                                img.style.maxWidth = '100%';
+                                img.style.height = 'auto';
+                            }
+                        });
+                    }
+                }, 10);
+            }
+            
+            // Limpiar el flag de edición
+            document.body.removeAttribute('data-editing-image');
+        } else {
+            // Insertar una nueva imagen normalmente
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'image', imageUrl, 'user');
+            
+            // Aplicar formato para asegurar que la imagen esté dentro del ancho máximo
+            setTimeout(() => {
+                const imgElements = quill.root.querySelectorAll('img');
+                imgElements.forEach(img => {
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                });
+            }, 10);
+            
+            quill.setSelection(range.index + 1);
+        }
+    } catch (error) {
+        console.error('Error al insertar/reemplazar imagen:', error);
+        
+        // Método de respaldo si falla el principal
+        try {
+            const range = quill.getSelection() || { index: quill.getLength() - 1 };
+            quill.insertEmbed(range.index, 'image', imageUrl, 'user');
+        } catch (fallbackError) {
+            console.error('Error incluso con el método de respaldo:', fallbackError);
+            alert('Hubo un problema al insertar la imagen. Por favor, intenta de nuevo.');
+        }
+    }
     
     closeModal(imageModal);
 });
@@ -514,6 +551,203 @@ window.addEventListener('click', (e) => {
         closeModal(e.target);
     }
 });
+
+// Función para manejar la selección de imágenes dentro del editor
+function setupImageSelection() {
+    const editorElement = document.querySelector('.ql-editor');
+    if (!editorElement) return;
+
+    // Crear el contenedor de controles para imágenes
+    imageControlsContainer = document.createElement('div');
+    imageControlsContainer.className = 'image-controls';
+    imageControlsContainer.style.display = 'none';
+    
+    // Crear botón de cambiar con ícono
+    const changeButton = document.createElement('button');
+    changeButton.className = 'image-control-btn image-change-btn';
+    changeButton.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    changeButton.title = 'Cambiar imagen';
+    
+    // Crear botón de borrar con ícono
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'image-control-btn image-delete-btn';
+    deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+    deleteButton.title = 'Borrar imagen';
+    
+    imageControlsContainer.appendChild(changeButton);
+    imageControlsContainer.appendChild(deleteButton);
+    document.body.appendChild(imageControlsContainer);
+    
+    // Manejar clics en imágenes dentro del editor de manera segura
+    editorElement.addEventListener('click', (e) => {
+        const target = e.target;
+        
+        // Si se hace clic en una imagen
+        if (target.tagName === 'IMG') {
+            e.preventDefault(); // Prevenir comportamiento por defecto
+            
+            // Limpiar cualquier selección previa
+            if (selectedImage && selectedImage !== target) {
+                selectedImage.classList.remove('selected-image');
+            }
+            
+            // Seleccionar la imagen actual
+            selectedImage = target;
+            selectedImage.classList.add('selected-image');
+            
+            // Posicionar los controles sobre la imagen - MÉTODO SEGURO
+            const rect = selectedImage.getBoundingClientRect();
+            imageControlsContainer.style.display = 'flex';
+            imageControlsContainer.style.position = 'fixed'; // Usar fixed en lugar de absolute
+            imageControlsContainer.style.top = `${rect.top + window.scrollY + 5}px`;
+            imageControlsContainer.style.left = `${rect.right - imageControlsContainer.offsetWidth - 5}px`;
+            
+            // No modificamos la estructura DOM alrededor de la imagen,
+            // solo posicionamos los controles cerca de ella
+        } 
+        // Clic en otra parte del editor
+        else if (!imageControlsContainer.contains(target)) {
+            cleanupSelection();
+        }
+    });
+    
+    // Limpiar selección y controles
+    function cleanupSelection() {
+        if (selectedImage) {
+            selectedImage.classList.remove('selected-image');
+            selectedImage = null;
+            imageControlsContainer.style.display = 'none';
+        }
+    }
+    
+    // Botón para cambiar la imagen
+    changeButton.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evitar propagación de eventos
+        
+        if (selectedImage) {
+            // Guardar referencia a la imagen actual que será reemplazada
+            const currentImage = selectedImage;
+            
+            // Abrir el modal para cambiar la imagen
+            openModal(imageModal);
+            
+            // Pre-cargar URL actual si es posible (excepto para imágenes base64 muy largas)
+            const currentSrc = currentImage.getAttribute('src');
+            if (currentSrc && currentSrc.length < 1000 && !currentSrc.startsWith('data:')) {
+                imageUrlInput.value = currentSrc;
+                imagePreview.src = currentSrc;
+                imagePreview.style.display = 'block';
+            } else {
+                imageUrlInput.value = '';
+                imagePreview.src = '';
+                imagePreview.style.display = 'none';
+            }
+            
+            imageUpload.value = '';
+            
+            // Flag para indicar que estamos editando una imagen existente
+            document.body.setAttribute('data-editing-image', 'true');
+            
+            // No removemos selectedImage para que el listener de inserción pueda usarlo
+            imageControlsContainer.style.display = 'none';
+        }
+    });
+    
+    // Botón para eliminar la imagen
+    deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evitar propagación de eventos
+        
+        if (selectedImage) {
+            try {
+                // Obtener el índice de la imagen en el documento Quill
+                const imgIndex = findImageIndex(selectedImage);
+                if (imgIndex !== -1) {
+                    // Eliminar la imagen usando el API de Quill
+                    quill.deleteText(imgIndex, 1);
+                }
+            } catch (error) {
+                console.error('Error al eliminar la imagen:', error);
+            }
+            
+            // Limpiar selección
+            cleanupSelection();
+        }
+    });
+    
+    // Función segura para encontrar el índice de una imagen en el documento
+    function findImageIndex(img) {
+        // Método 1: Navegar por el DOM y contar nodos de texto/imágenes
+        try {
+            let currentNode = editorElement.firstChild;
+            let index = 0;
+            
+            while (currentNode) {
+                if (currentNode === img) {
+                    return index;
+                }
+                
+                // Incrementar índice basado en tipo de nodo
+                if (currentNode.nodeType === Node.TEXT_NODE) {
+                    index += currentNode.textContent.length;
+                } else {
+                    index += 1; // Para nodos embed como imágenes
+                }
+                
+                currentNode = currentNode.nextSibling;
+            }
+        } catch (e) {
+            console.log("Error en método 1:", e);
+        }
+        
+        // Método 2: Usar Quill.find (método más recomendado)
+        try {
+            const allImages = quill.root.querySelectorAll('img');
+            for (let i = 0; i < allImages.length; i++) {
+                if (allImages[i] === img) {
+                    // Encuentra el blot correspondiente
+                    const blot = Quill.find(img);
+                    if (blot) {
+                        return quill.getIndex(blot);
+                    }
+                }
+            }
+        } catch (e) {
+            console.log("Error en método 2:", e);
+        }
+        
+        // Si ningún método funciona, posicionar al final
+        return quill.getLength() - 1;
+    }
+    
+    // Escuchar clics en todo el documento
+    document.addEventListener('click', (e) => {
+        const isClickInsideEditor = editorElement.contains(e.target);
+        const isClickOnControls = imageControlsContainer.contains(e.target);
+        const isImageModalOpen = imageModal.style.display === 'flex';
+        
+        if (!isClickInsideEditor && !isClickOnControls && !isImageModalOpen) {
+            cleanupSelection();
+        }
+    });
+    
+    // Gestionar scroll para reposicionar los controles
+    window.addEventListener('scroll', () => {
+        if (selectedImage && imageControlsContainer.style.display !== 'none') {
+            const rect = selectedImage.getBoundingClientRect();
+            imageControlsContainer.style.top = `${rect.top + window.scrollY + 5}px`;
+            imageControlsContainer.style.left = `${rect.right - imageControlsContainer.offsetWidth - 5}px`;
+        }
+    });
+    
+    // Gestionar redimensionamiento de ventana
+    window.addEventListener('resize', () => {
+        if (selectedImage && imageControlsContainer.style.display !== 'none') {
+            const rect = selectedImage.getBoundingClientRect();
+            imageControlsContainer.style.top = `${rect.top + window.scrollY + 5}px`;
+            imageControlsContainer.style.left = `${rect.right - imageControlsContainer.offsetWidth - 5}px`;
+        }
+    });
+}
 
 // Inicializar la aplicación
 init();
