@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Artículos</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Incluimos quill.js para el editor de texto enriquecido -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>EditorPro</h1>
+        </div>
+        <nav>
+            <button id="saveBtn" class="btn primary"><i class="fas fa-save"></i> Guardar</button>
+            <button id="newBtn" class="btn"><i class="fas fa-plus"></i> Nuevo</button>
+        </nav>
+    </header>
+
+    <main>
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Artículos guardados</h3>
+                <ul id="saved-articles">
+                    <!-- Los artículos guardados aparecerán aquí -->
+                </ul>
+            </div>
+        </aside>
+
+        <section class="editor-container">
+            <div class="title-container">
+                <input type="text" id="article-title" placeholder="Título del artículo" class="title-input">
+            </div>
+            
+            <!-- Eliminamos la barra de herramientas personalizada ya que los botones 
+                 de imagen y enlace ahora están en la barra de Quill -->
+            
+            <!-- Editor de contenido -->
+            <div id="editor">
+                <p>Comienza a escribir tu artículo aquí...</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal para subir imágenes -->
+    <div id="image-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Insertar imagen</h2>
+            <div class="form-group">
+                <label for="image-url">URL de la imagen:</label>
+                <input type="text" id="image-url" placeholder="https://ejemplo.com/imagen.jpg">
+            </div>
+            <div class="form-group">
+                <p>O sube una imagen desde tu dispositivo:</p>
+                <input type="file" id="image-upload" accept="image/*">
+            </div>
+            <div class="preview">
+                <img id="image-preview" src="" alt="Vista previa">
+            </div>
+            <button id="insert-image" class="btn primary">Insertar imagen</button>
+        </div>
+    </div>
+
+    <!-- Modal para agregar enlaces -->
+    <div id="link-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Insertar enlace</h2>
+            <div class="form-group">
+                <label for="link-text">Texto del enlace:</label>
+                <input type="text" id="link-text" placeholder="Texto a mostrar">
+            </div>
+            <div class="form-group">
+                <label for="link-url">URL del enlace:</label>
+                <input type="text" id="link-url" placeholder="https://ejemplo.com">
+            </div>
+            <button id="insert-link" class="btn primary">Insertar enlace</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
